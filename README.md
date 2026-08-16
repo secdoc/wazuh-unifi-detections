@@ -73,5 +73,6 @@ yours and re-run the sanitizer before publishing.
 
 ## License
 
-MIT. No warranty. Detection content is environment-specific; validate with
-`wazuh-logtest` against your own log samples before trusting it inline.
+Dual-licensed, **attribution required**: code/rules/decoders under [Apache License 2.0](LICENSE); docs/diagrams under [CC BY 4.0](LICENSE-docs). See [`LICENSING.md`](LICENSING.md) and [`NOTICE`](NOTICE). Credit: Lester E. Nichols III, secdoc.tech.
+
+No warranty. Detection content is environment-specific; validate with `wazuh-logtest` against your own log samples before trusting it inline.
