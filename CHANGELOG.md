@@ -2,6 +2,30 @@
 
 All notable changes to the UniFi to Wazuh detection content and dashboard.
 
+## 2026-08-16 - Extended detections + geo mapping
+
+### Added
+- `rules/unifi_threat_rules.xml` (custom IDs 110120-110124):
+  - 110120 (L10): blocked attempt to the management plane (T1021).
+  - 110121 (L7): blocked traffic to a published port-forward/DNAT (T1190).
+  - 110122 (L12): repeated port-forward probing storm (T1190).
+  - 110123 (L12): internal host blocked reaching a known-bad IP via CDB list (T1071).
+  - 110124 (L8): blocked probe of high-risk service ports SMB/RDP/Telnet/RPC (T1046).
+- `lists/unifi-malicious-ip.example`: CDB threat-list template for rule 110123.
+- Dashboard geo panels: region map (blocked sources by country), coordinate map
+  (source IP geo-points), and an IP-location listing table (IP, city, country, count).
+  Requires GeoIP enrichment on the manager (GeoLocation.* fields on alerts).
+
+### Notes
+- Rule 110120 ships with placeholder management CIDRs (10.0.0-2.x). EDIT them to
+  your own management subnets before deploying.
+- Deploy detections by placing the rule file in `/var/ossec/etc/rules/` and
+  registering the CDB list in `ossec.conf` `<ruleset>`, then restart the manager.
+  The Wazuh 4.14.5 Server API `PUT /rules/files` endpoint returned a spurious
+  XML-syntax error (code 1113) on all uploads including known-valid files, so
+  file-based deployment is the reliable path on that build. CDB list and dashboard
+  imports via API worked normally.
+
 ## 2026-08-16 - Initial public release
 
 ### Added

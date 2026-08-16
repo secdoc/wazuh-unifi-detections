@@ -47,7 +47,8 @@ MAC = re.compile(r'\b([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b')
 
 # leak canaries: if ANY of these survive, fail the run
 CANARIES = list(OWNER_PUBLIC_IPS) + list(OWNER_PRIV_HOSTS) + [
-    "VOID-EFG","secdoc.home","secdoc.tech","wazuh-debian13"]
+    "VOID-EFG","secdoc.home","secdoc.tech","wazuh-debian13",
+    "192.168.88.","192.168.4.","192.168.6."]  # mgmt-plane CIDRs
 
 def sanitize_text(t):
     for ip, repl in {**OWNER_PUBLIC_IPS, **OWNER_PRIV_HOSTS}.items():

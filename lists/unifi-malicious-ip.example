@@ -1,0 +1,5 @@
+# CDB list: known-bad IPs. Format key:value, one per line.
+# Compile on manager: /var/ossec/bin/wazuh-list -a /var/ossec/etc/lists/unifi-malicious-ip
+# Seed with your own threat intel; examples below are public scanner IPs observed in the wild.
+203.0.113.66:known-scanner
+198.51.100.23:known-scanner

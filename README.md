@@ -13,7 +13,8 @@ and Wazuh 4.14.x. Published for anyone integrating UniFi with Wazuh.
 ```
 decoders/    UniFi syslog decoders (firewall traffic, CEF SIEM export, CoreDNS)
 rules/       Detection rules: blocked traffic, scan/storm correlation, MITRE tags
-dashboards/  "UniFi WAN Threats" dashboard (OpenSearch Dashboards saved-objects NDJSON)
+dashboards/  "UniFi WAN Threats" dashboard incl. geo map + IP-location table (NDJSON)
+lists/       CDB threat-list template (known-bad IPs) for rule 110123
 docs/        Integration guide: sender config, decoder logic, rule map
 scripts/     sanitize.py (public-release scrubber), validate.sh (logtest checks)
 ```
@@ -42,6 +43,18 @@ scripts/     sanitize.py (public-release scrubber), validate.sh (logtest checks)
   short window escalate to level 10, tagged MITRE T1046 (Network Service Discovery).
 - **CEF SIEM events** (rules 100100+): admin activity, client events, IPS/threat
   detections, with correlation rules for brute force, deauth, and repeated threats.
+- **Extended threat rules** (110120-110124): management-plane touch attempts,
+  port-forward abuse and probing storms, known-bad IP contact via CDB list, and
+  external probes of high-risk service ports (SMB/RDP/Telnet/RPC). Edit the
+  management CIDRs in rule 110120 for your environment before deploying.
+
+## Geo mapping
+
+The dashboard includes a country region map, a source-IP coordinate map, and an
+IP-location listing table. These require GeoIP enrichment on the manager so alerts
+carry `GeoLocation.*` fields (city, country, lat/lon). Modern Wazuh builds enrich
+public IPs automatically; confirm with a quick check that `GeoLocation.location`
+exists on recent alerts.
 
 ## Sanitization / privacy
 

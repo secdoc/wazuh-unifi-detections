@@ -1,0 +1,49 @@
+<!--
+  UniFi custom threat detections (extended set)
+  Builds on unifi-traffic (110100-110103) and unifi-cef rules.
+  Custom ID range 110120+. MITRE ATT&CK tagged. Validate with wazuh-logtest.
+-->
+<group name="unifi-traffic,unifi-threat,">
+
+  <!-- EDIT: replace the CIDR prefixes below with YOUR management-plane subnets -->
+  <rule id="110120" level="10">
+    <if_sid>110102</if_sid>
+    <field name="dstip" type="pcre2">^(10\.0\.0\.|10\.0\.1\.|10\.0\.2\.)</field>
+    <description>UniFi: blocked attempt to MANAGEMENT plane from source.</description>
+    <group>firewall_block,management_plane,</group>
+    <mitre><id>T1021</id></mitre>
+  </rule>
+
+  <rule id="110121" level="7">
+    <if_sid>110102</if_sid>
+    <field name="unifi_fw_rule" type="pcre2">PREROUTING-DNAT|DNAT</field>
+    <description>UniFi: blocked traffic to a published port-forward.</description>
+    <group>firewall_block,port_forward_abuse,</group>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="110122" level="12" frequency="8" timeframe="120">
+    <if_matched_sid>110121</if_matched_sid>
+    <same_source_ip />
+    <description>UniFi: repeated probing of a published service (exploit/scan).</description>
+    <group>port_forward_abuse,</group>
+    <mitre><id>T1190</id></mitre>
+  </rule>
+
+  <rule id="110123" level="12">
+    <if_sid>110102</if_sid>
+    <list field="dstip" lookup="address_match_key">etc/lists/unifi-malicious-ip</list>
+    <description>UniFi: internal host blocked reaching known-bad IP.</description>
+    <group>firewall_block,threat_intel,</group>
+    <mitre><id>T1071</id></mitre>
+  </rule>
+
+  <rule id="110124" level="8">
+    <if_sid>110102</if_sid>
+    <field name="dstport" type="pcre2">^(445|3389|23|135|139)$</field>
+    <description>UniFi: blocked probe of high-risk service port (SMB/RDP/Telnet/RPC).</description>
+    <group>firewall_block,recon,</group>
+    <mitre><id>T1046</id></mitre>
+  </rule>
+
+</group>
