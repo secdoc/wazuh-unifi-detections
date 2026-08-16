@@ -1,0 +1,25 @@
+<group name="unifi-dns,">
+  <rule id="110200" level="0">
+    <decoded_as>unifi-coredns</decoded_as>
+    <description>UniFi EFG DNS filter event (grouping).</description>
+  </rule>
+
+  <rule id="110201" level="0">
+    <if_sid>110200</if_sid>
+    <field name="category">ADVERTISEMENT</field>
+    <description>UniFi DNS: ad blocked (suppressed).</description>
+  </rule>
+
+  <rule id="110202" level="7">
+    <if_sid>110200</if_sid>
+    <field name="category" type="pcre2">MALICIOUS|PHISHING|MALWARE|SECURITY|BOTNET</field>
+    <description>UniFi DNS shield: blocked $(category) lookup of $(domain) by $(src_ip).</description>
+    <mitre><id>T1071.004</id></mitre>
+  </rule>
+
+  <rule id="110203" level="10" frequency="8" timeframe="300">
+    <if_matched_sid>110202</if_matched_sid>
+    <same_source_ip />
+    <description>UniFi DNS shield: repeated malicious DNS lookups from same host (possible infection).</description>
+  </rule>
+</group>

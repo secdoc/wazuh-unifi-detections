@@ -1,0 +1,72 @@
+<!--
+  UniFi CEF decoders for Wazuh - v3
+  Wazuh pre-decoding extracts program_name='CEF' from the EFG's syslog
+  framing (confirmed via wazuh-logtest Phase 1), so the parent matches on
+  program_name. A prematch alternate covers CEF lines with no syslog header.
+  Children extract the CEF header AND event-type fields in a single regex,
+  because sibling child decoders are first-match-wins.
+-->
+
+<decoder name="unifi-cef">
+  <program_name type="pcre2">^CEF$</program_name>
+</decoder>
+
+<decoder name="unifi-cef">
+  <prematch type="pcre2">^CEF:0\|Ubiquiti\|UniFi</prematch>
+</decoder>
+
+<!-- Security events: IPS/IDS, threats, firewall blocks -->
+<decoder name="unifi-cef-security">
+  <parent>unifi-cef</parent>
+  <regex type="pcre2">^(?:CEF:)?0\|Ubiquiti\|[^|]+\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|.*?UNIFIcategory=(\S+).*?act=(\S+).*?UNIFIrisk=(\S+).*?src=(\S+)\s+dst=(\S+)</regex>
+  <order>unifi_device_version, unifi_event_id, unifi_event_name, unifi_severity, unifi_category, action, unifi_risk, srcip, dstip</order>
+</decoder>
+
+<!-- Admin/system events -->
+<decoder name="unifi-cef-admin">
+  <parent>unifi-cef</parent>
+  <regex type="pcre2">^(?:CEF:)?0\|Ubiquiti\|[^|]+\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|.*?UNIFIcategory=(\S+).*?UNIFIadmin=(.+?)(?=\s+\w+=).*?src=([\d.:a-fA-F]+)</regex>
+  <order>unifi_device_version, unifi_event_id, unifi_event_name, unifi_severity, unifi_category, srcuser, srcip</order>
+</decoder>
+
+<!-- Client events with MAC -->
+<decoder name="unifi-cef-client">
+  <parent>unifi-cef</parent>
+  <regex type="pcre2">^(?:CEF:)?0\|Ubiquiti\|[^|]+\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|.*?UNIFIcategory=(\S+).*?UNIFIclientMac=([0-9a-fA-F:]{17})</regex>
+  <order>unifi_device_version, unifi_event_id, unifi_event_name, unifi_severity, unifi_category, unifi_client_mac</order>
+</decoder>
+
+<!-- Generic fallback: CEF header fields only -->
+<decoder name="unifi-cef-generic">
+  <parent>unifi-cef</parent>
+  <regex type="pcre2">^(?:CEF:)?0\|Ubiquiti\|[^|]+\|([^|]*)\|([^|]*)\|([^|]*)\|([^|]*)\|</regex>
+  <order>unifi_device_version, unifi_event_id, unifi_event_name, unifi_severity</order>
+</decoder>
+
+<!-- Device syslog decoders (APs, switches) -->
+<decoder name="unifi-device-syslog">
+  <prematch type="pcre2">hostapd:|ath\d+:|wpa_supplicant|ubnt-</prematch>
+  <regex type="pcre2">^(.*)$</regex>
+  <order>extra_data</order>
+</decoder>
+
+<decoder name="unifi-device-sta-mac">
+  <parent>unifi-device-syslog</parent>
+  <prematch type="pcre2"> STA [0-9a-fA-F:]{17}</prematch>
+  <regex type="pcre2"> STA ([0-9a-fA-F:]{17}) (.+)$</regex>
+  <order>unifi_client_mac, extra_data</order>
+</decoder>
+
+<decoder name="unifi-device-associated">
+  <parent>unifi-device-syslog</parent>
+  <prematch type="pcre2">associated</prematch>
+  <regex type="pcre2">STA ([0-9a-fA-F:]{17}) .* (associated)</regex>
+  <order>unifi_client_mac, action</order>
+</decoder>
+
+<decoder name="unifi-device-disassociated">
+  <parent>unifi-device-syslog</parent>
+  <prematch type="pcre2">disassociated</prematch>
+  <regex type="pcre2">STA ([0-9a-fA-F:]{17}) .* (disassociated)</regex>
+  <order>unifi_client_mac, action</order>
+</decoder>

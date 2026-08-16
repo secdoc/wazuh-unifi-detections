@@ -1,0 +1,9 @@
+<decoder name="unifi-coredns">
+  <program_name type="pcre2">^coredns$</program_name>
+</decoder>
+
+<decoder name="unifi-coredns-json">
+  <parent>unifi-coredns</parent>
+  <prematch type="pcre2">^\{</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

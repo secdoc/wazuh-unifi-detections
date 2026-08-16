@@ -1,0 +1,18 @@
+# Live/environment data — never commit
+*.env
+.env
+**/wazuh_env_info*
+**/*_creds*
+**/*secret*
+
+# Raw captures and snapshots (may contain live IPs/hosts pre-sanitization)
+*archives.json
+*alerts.json
+efg_firewall_policies*.json
+*_snapshot*.json
+dashboard_import.ndjson
+dashboards_export.ndjson
+
+# Python
+__pycache__/
+*.pyc

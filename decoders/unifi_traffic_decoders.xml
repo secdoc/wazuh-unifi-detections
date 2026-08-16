@@ -1,0 +1,15 @@
+<decoder name="unifi-traffic">
+  <prematch type="pcre2">\[\S+\] DESCR="[^"]*" IN=</prematch>
+</decoder>
+
+<decoder name="unifi-traffic-tcp-udp">
+  <parent>unifi-traffic</parent>
+  <regex type="pcre2">\[(\S+)\] DESCR="([^"]*)".*?SRC=(\S+) DST=(\S+).*?PROTO=(\S+) SPT=(\d+) DPT=(\d+)</regex>
+  <order>unifi_fw_rule, unifi_fw_descr, srcip, dstip, protocol, srcport, dstport</order>
+</decoder>
+
+<decoder name="unifi-traffic-other">
+  <parent>unifi-traffic</parent>
+  <regex type="pcre2">\[(\S+)\] DESCR="([^"]*)".*?SRC=(\S+) DST=(\S+).*?PROTO=(\S+)</regex>
+  <order>unifi_fw_rule, unifi_fw_descr, srcip, dstip, protocol</order>
+</decoder>
