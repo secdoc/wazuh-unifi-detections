@@ -5,6 +5,8 @@ gateway** firewall and threat logs into Wazuh SIEM/XDR. Decoders parse UniFi's
 syslog format, rules turn blocked traffic and scan behavior into alerts (with
 MITRE ATT&CK tagging), and the dashboard visualizes it.
 
+<img width="1753" height="1074" alt="Screenshot_2026-08-16_01-17-49" src="https://github.com/user-attachments/assets/dc97d344-3b40-4a2a-889b-1596a35aec01" />
+
 Built and validated against a UniFi Enterprise Fortress Gateway (Network 9.x)
 and Wazuh 4.14.x. Published for anyone integrating UniFi with Wazuh.
 
