@@ -16,7 +16,7 @@ and Wazuh 4.14.x. Published for anyone integrating UniFi with Wazuh.
 ```
 decoders/    UniFi syslog decoders (firewall traffic, CEF SIEM export, CoreDNS)
 rules/       Detection rules: blocked traffic, scan/storm correlation, MITRE tags
-dashboards/  "UniFi WAN Threats" dashboard incl. geo map + IP-location table (NDJSON)
+dashboards/  Legacy raw-decoder and normalized EFG contract v1 dashboards (NDJSON)
 lists/       CDB threat-list template (known-bad IPs) for rule 110123
 docs/        Integration guide: sender config, decoder logic, rule map
 scripts/     sanitize.py (public-release scrubber), validate.sh (logtest checks)
@@ -33,9 +33,10 @@ scripts/     sanitize.py (public-release scrubber), validate.sh (logtest checks)
    /var/ossec/bin/wazuh-logtest    # paste a real UniFi log line; confirm decode + rule
    ```
 4. Restart: `systemctl restart wazuh-manager`
-5. Import the dashboard: Dashboards > Stack Management > Saved Objects > Import,
-   select `dashboards/unifi-wan-threats.ndjson`. It references the stock
-   `wazuh-alerts-*` index pattern.
+5. Import the dashboard through Dashboards > Stack Management > Saved Objects > Import:
+   - Direct raw UniFi syslog with this repository's `110xxx` decoders and rules: `dashboards/unifi-wan-threats.ndjson`.
+   - Graylog-normalized `secdoc.unifi.efg.v1` events with `121xxx` rules: `dashboards/unifi-efg-contract-v1.ndjson`.
+   Both reference the stock `wazuh-alerts-*` index pattern and overwrite dashboard ID `unifi-wan-threats`, so import only the dashboard matching the active parser contract.
 
 ## Detection coverage
 
@@ -58,6 +59,8 @@ IP-location listing table. These require GeoIP enrichment on the manager so aler
 carry `GeoLocation.*` fields (city, country, lat/lon). Modern Wazuh builds enrich
 public IPs automatically; confirm with a quick check that `GeoLocation.location`
 exists on recent alerts.
+
+The normalized EFG contract dashboard aggregates `data.source_ip` and `data.destination_port`. Its Graylog-to-Wazuh bridge also emits transport alias `srcip=source_ip` so Wazuh can populate `GeoLocation.*`. The alias does not change the normalized event hash or semantic contract field.
 
 ## Sanitization / privacy
 
