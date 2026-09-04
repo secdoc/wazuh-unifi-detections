@@ -40,7 +40,7 @@ def load_replacements():
 def sanitize_text(text, replacements):
     for source, replacement in replacements.items():
         text = text.replace(source, replacement)
-    text = MAC.sub("00:11:22:33:44:55", text)
+    text = MAC.sub("02:00:00:00:00:55", text)
     text = EMAIL.sub("user@example.com", text)
     return text
 
@@ -58,7 +58,7 @@ def scan_text(text):
     findings = []
     if INTERNAL_DNS.search(text):
         findings.append("internal DNS name")
-    if any(match.group(0) != "00:11:22:33:44:55" for match in MAC.finditer(text)):
+    if any(match.group(0) != "02:00:00:00:00:55" for match in MAC.finditer(text)):
         findings.append("MAC address")
     for match in IPV4.finditer(text):
         token = match.group(0)
