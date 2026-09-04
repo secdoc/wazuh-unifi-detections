@@ -1,90 +1,116 @@
 #!/usr/bin/env python3
-"""Sanitize Wazuh UniFi detection + dashboard artifacts for PUBLIC release.
+"""Sanitize Wazuh UniFi artifacts for public release.
 
-Policy (agreed with owner):
-- REDACT owner-identifying infrastructure: our public/WAN IPs, Tailscale/CGNAT
-  addresses, internal hostnames, local domains, emails, MACs, controller UUIDs.
-- KEEP third-party IPs (attackers, public DNS, threat sources) — they are threat
-  context, not owner PII, and their public value is the point of sharing.
-- KEEP RFC1918 CIDRs used as generic matchers (10/8, 172.16/12, 192.168/16) —
-  universal, non-identifying.
-- REDACT specific RFC1918 host addresses that map to our named segments only if
-  they reveal internal layout in a sample (replaced with 192.0.2.x doc range).
-
-Run before every commit. Idempotent. Exit non-zero if a known-secret token
-survives (defense in depth).
+Owner-specific replacements must be supplied from an untracked JSON file through
+SANITIZE_MAP_FILE. The public repository contains policy and generic detection,
+not the owner's addresses, hostnames, account names, or credential fragments.
 """
-import re, sys, os, glob
 
-# --- owner-identifying values to redact (EXACT) ---
-OWNER_PUBLIC_IPS = {
-    "71.128.4.186": "203.0.113.10",     # WAN primary  -> TEST-NET-3 doc range
-    "71.128.4.1":   "203.0.113.1",      # WAN gateway
-    "100.127.125.129": "203.0.113.20",  # CGNAT/secondary WAN
-    "100.96.0.2":   "100.64.0.2",       # Tailscale node -> generic CGNAT shared range
-}
-# internal host samples that expose layout (map to 192.0.2.x TEST-NET-1)
-OWNER_PRIV_HOSTS = {
-    "192.168.2.243": "192.0.2.243",     # wazuh host
-    "192.168.88.1":  "192.0.2.1",       # gateway mgmt
-    "192.168.2.1":   "192.0.2.1",
-    "192.168.88.55": "192.0.2.55",      # admin workstation
-    "192.168.2.108": "192.0.2.108",     # NPM / port-forward target
-}
-TOKENS = {
-    r"VOID-EFG": "GATEWAY-01",
-    r"wazuh-debian13-lab-kvm-svr": "wazuh-manager",
-    r"technitium-lab-debian13-kvm-svr": "dns-server",
-    r"graylog-debian13-lab-kvm-svr": "graylog-server",
-    r"ESSEXLAB": "LAB",
-    r"secdoc": "example",
-    r"\.secdoc\.home": ".example.local",
-    r"\.secdoc\.tech": ".example.com",
-    r"56358e39-74b3-4853-baba-f5b7fcd57893": "00000000-0000-0000-0000-000000000000",
-}
-EMAIL = re.compile(r'[\w.+-]+@[\w-]+\.[\w.-]+')
-MAC = re.compile(r'\b([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b')
+import glob
+import ipaddress
+import json
+import os
+import re
+import sys
 
-# leak canaries: if ANY of these survive, fail the run
-CANARIES = list(OWNER_PUBLIC_IPS) + list(OWNER_PRIV_HOSTS) + [
-    "VOID-EFG","secdoc.home","secdoc.tech","wazuh-debian13",
-    "192.168.88.","192.168.4.","192.168.6."]  # mgmt-plane CIDRs
+EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+MAC = re.compile(r"\b(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\b")
+IPV4 = re.compile(r"(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/[0-9]{1,2})?(?![0-9])")
+INTERNAL_DNS = re.compile(r"(?i)\b(?:[a-z0-9-]+\.)+(?:home|internal)\b")
+ALLOWED_PRIVATE_CIDRS = {"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}
+DOCUMENTATION_NETWORKS = tuple(ipaddress.ip_network(value) for value in (
+    "192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24"
+))
+TEXT_SUFFIXES = (".conf", ".json", ".md", ".ndjson", ".txt", ".xml")
 
-def sanitize_text(t):
-    for ip, repl in {**OWNER_PUBLIC_IPS, **OWNER_PRIV_HOSTS}.items():
-        t = t.replace(ip, repl)
-    for pat, repl in TOKENS.items():
-        t = re.sub(pat, repl, t)
-    t = MAC.sub("00:11:22:33:44:55", t)
-    t = EMAIL.sub("user@example.com", t)
-    return t
+
+def load_replacements():
+    path = os.environ.get("SANITIZE_MAP_FILE")
+    if not path:
+        return {}
+    with open(path, encoding="utf-8") as handle:
+        values = json.load(handle)
+    if not isinstance(values, dict) or not all(
+        isinstance(key, str) and isinstance(value, str) for key, value in values.items()
+    ):
+        raise SystemExit("SANITIZE_MAP_FILE must contain a JSON object of string replacements")
+    return values
+
+
+def sanitize_text(text, replacements):
+    for source, replacement in replacements.items():
+        text = text.replace(source, replacement)
+    text = MAC.sub("00:11:22:33:44:55", text)
+    text = EMAIL.sub("user@example.com", text)
+    return text
+
+
+def is_disallowed_private_address(token):
+    if token in ALLOWED_PRIVATE_CIDRS:
+        return False
+    try:
+        return ipaddress.ip_interface(token).ip.is_private
+    except ValueError:
+        return False
+
+
+def scan_text(text):
+    findings = []
+    if INTERNAL_DNS.search(text):
+        findings.append("internal DNS name")
+    if any(match.group(0) != "00:11:22:33:44:55" for match in MAC.finditer(text)):
+        findings.append("MAC address")
+    for match in IPV4.finditer(text):
+        token = match.group(0)
+        try:
+            address = ipaddress.ip_interface(token).ip
+        except ValueError:
+            continue
+        if any(address in network for network in DOCUMENTATION_NETWORKS):
+            continue
+        if token not in ALLOWED_PRIVATE_CIDRS and address.is_private:
+            findings.append("specific private IPv4 address")
+            break
+    return findings
+
+
+def iter_files(root):
+    script = os.path.realpath(__file__)
+    mapping = os.path.realpath(os.environ.get("SANITIZE_MAP_FILE", ""))
+    for path in glob.glob(f"{root}/**/*", recursive=True):
+        real_path = os.path.realpath(path)
+        if not os.path.isfile(path) or real_path in {script, mapping}:
+            continue
+        if ".git/" in path or not path.endswith(TEXT_SUFFIXES):
+            continue
+        yield path
+
 
 def main():
     root = sys.argv[1] if len(sys.argv) > 1 else "."
+    replacements = load_replacements()
     changed = 0
-    for f in glob.glob(f"{root}/**/*", recursive=True):
-        if not os.path.isfile(f): continue
-        if any(seg in f for seg in (".git/","/scripts/sanitize.py")): continue
-        if not f.endswith((".xml",".ndjson",".md",".json",".conf",".txt")): continue
-        orig = open(f, encoding="utf-8", errors="ignore").read()
-        new = sanitize_text(orig)
-        if new != orig:
-            open(f,"w").write(new); changed += 1
-            print(f"  sanitized {f}")
-    # canary check
+    for path in iter_files(root):
+        original = open(path, encoding="utf-8", errors="ignore").read()
+        sanitized = sanitize_text(original, replacements)
+        if sanitized != original:
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(sanitized)
+            changed += 1
     leaks = []
-    for f in glob.glob(f"{root}/**/*", recursive=True):
-        if not os.path.isfile(f) or ".git/" in f or "sanitize.py" in f: continue
-        if not f.endswith((".xml",".ndjson",".md",".json",".conf",".txt")): continue
-        txt = open(f, encoding="utf-8", errors="ignore").read()
-        for c in CANARIES:
-            if c in txt: leaks.append((f, c))
-    print(f"\nfiles changed: {changed}")
+    for path in iter_files(root):
+        text = open(path, encoding="utf-8", errors="ignore").read()
+        for finding in scan_text(text):
+            leaks.append((path, finding))
+    print(f"files changed: {changed}")
     if leaks:
-        print("LEAK DETECTED — aborting:")
-        for f,c in leaks: print(f"  {c} still in {f}")
-        sys.exit(1)
-    print("canary check: PASS (no owner-identifying tokens remain)")
+        print("LEAK DETECTED, aborting:")
+        for path, finding in leaks:
+            print(f"  {path}: {finding}")
+        return 1
+    print("privacy check: PASS")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

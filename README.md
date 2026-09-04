@@ -64,15 +64,16 @@ The normalized EFG contract dashboard aggregates `data.source_ip` and `data.dest
 
 ## Sanitization / privacy
 
-This repo is public and scrubbed. `scripts/sanitize.py` runs before every commit
-and redacts owner-identifying data: our public/WAN IPs, internal hostnames, local
-domains, emails, MACs, and controller UUIDs. It is committed so the process is
-auditable. What is deliberately KEPT: RFC1918 CIDRs used as generic matchers
-(they are universal), and third-party IPs that appear as threat context. Example
-addresses use the RFC 5737 documentation ranges (192.0.2.0/24, 203.0.113.0/24).
+This repo is public and scrubbed. `scripts/sanitize.py` runs before every commit.
+Owner-specific replacements are loaded from an untracked JSON file referenced by
+`SANITIZE_MAP_FILE`; the public script contains no real addresses, hostnames,
+account identifiers, or credential fragments. It also rejects specific RFC1918
+host addresses and internal-only DNS names that remain after replacement.
+Generic RFC1918 CIDRs and third-party threat-source IPs remain because they do
+not identify the repository owner's environment. Examples use RFC 5737 ranges.
 
-If you fork this for your own environment, replace the example addresses with
-yours and re-run the sanitizer before publishing.
+If you fork this for your own environment, keep the replacement map outside Git
+and run the sanitizer before publishing.
 
 ## License
 
@@ -82,5 +83,5 @@ No warranty. Detection content is environment-specific; validate with `wazuh-log
 
 ## GitLab CI baseline
 
-GitLab CI runs repository integrity validation and centralized ClamAV scanning on the isolated `phase4-untrusted` runner. The baseline validates tracked Python syntax, shell syntax, and JSON parsing without direct Internet access. Repository-specific build and test gates remain additive to this baseline.
+GitLab CI runs repository integrity validation and secret scanning. The baseline validates tracked Python syntax, shell syntax, and JSON parsing, while the secret scan uses a pinned public container image. Repository-specific build and test gates remain additive to this baseline.
 
